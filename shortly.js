@@ -27,10 +27,58 @@ app.get('/create', function(req, res) {
   res.render('index');
 });
 
+app.get('/signup', function(req, res) {
+  res.render('signup');
+});
+
+app.get('/login', function(req, res) {
+  res.render('login');
+});
+
+
 app.get('/links', function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   })
+});
+
+app.post('/signup', function(req, res) {
+  var userInfo = req.body;
+  userInfo.created_at = new Date();
+  userInfo.updated_at = new Date();
+  db.knex('users')
+    .insert(userInfo)
+    .then(function(){
+      console.log("added");
+    })
+    .catch(function(err){
+      console.log(err);
+    });
+
+  res.render('login');
+  /*
+  db.knex('users').where('username', '=','fred').then(function(res){
+    console.log('success');
+    console.log(res);
+
+  });
+*/
+
+    /*
+    .where('username', '=', 'Svnh')
+    .then(function(res) {
+      if (res[0] && res[0]['username']) {
+        var user = res[0]['username'];
+          console.log("success!");
+        }
+        //done();
+      }).catch(function(err) {
+        throw {
+          type: 'DatabaseError',
+          message: 'Failed to add user'
+        };
+      });
+  */
 });
 
 app.post('/links', function(req, res) {
