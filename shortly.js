@@ -8,8 +8,11 @@ var User = require('./app/models/user');
 var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
+var crypto = require('crypto');
 
 var app = express();
+
+
 
 app.configure(function() {
   app.set('views', __dirname + '/views');
@@ -43,7 +46,11 @@ app.get('/links', function(req, res) {
 });
 
 app.post('/signup', function(req, res) {
+  var shasum = crypto.createHash('sha1');
   var userInfo = req.body;
+  var newPassword = shasum.update(req.body.password).digest('hex');
+  console.log('newPassword', newPassword);
+  userInfo.password = newPassword;
   userInfo.created_at = new Date();
   userInfo.updated_at = new Date();
   db.knex('users')
@@ -56,29 +63,28 @@ app.post('/signup', function(req, res) {
     });
 
   res.render('login');
-  /*
-  db.knex('users').where('username', '=','fred').then(function(res){
-    console.log('success');
-    console.log(res);
+});
 
-  });
-*/
+app.post('/login',function(req, res){
 
-    /*
-    .where('username', '=', 'Svnh')
-    .then(function(res) {
-      if (res[0] && res[0]['username']) {
-        var user = res[0]['username'];
-          console.log("success!");
+  var formUsername = req.body.username;
+  var formPassword = req.body.password;
+  console.log(formUsername);
+  console.log(formPassword);
+  db.knex('users').select('password').where('username', formUsername).exec(function(err, resp){
+        var shasum = crypto.createHash('sha1');
+        var hash = shasum.update(formPassword).digest('hex');
+        console.log('hash', hash);
+        console.log('resp', resp);
+        if(hash === resp[0].password){
+          console.log('Yeahey');
+        } else {
+          console.log('Your password is wrong');
+          res.render('login');
+          // $('h2').append('<div>Your password is wrong</div>').css('color', 'red');
         }
-        //done();
-      }).catch(function(err) {
-        throw {
-          type: 'DatabaseError',
-          message: 'Failed to add user'
-        };
       });
-  */
+
 });
 
 app.post('/links', function(req, res) {
