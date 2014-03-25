@@ -11,8 +11,8 @@ var Click = require('./app/models/click');
 var crypto = require('crypto');
 
 var app = express();
-app.use(express.cookieParser());                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
-                
+app.use(express.cookieParser());
+
 app.configure(function() {
   app.set('views', __dirname + '/views');
   app.set('view engine', 'ejs');
@@ -32,12 +32,12 @@ app.use(function (req, res, next) {
     res.cookie('loggedIn', false, {maxAge: 900000, httpOnly: true});
     //res.cookie('cookieName',randomNumber, { maxAge: 900000, httpOnly: true });
     console.log('cookie have created successfully');
-  } 
+  }
   else
   {
-    // yes, cookie was already present 
+    // yes, cookie was already present
     console.log('cookie exists', cookie);
-  } 
+  }
   next(); // <-- important!
 });
 
@@ -61,6 +61,8 @@ app.get('/login', function(req, res) {
 
 
 app.get('/links', function(req, res) {
+  console.log('coookie :',req.cookies.loggedIn);
+  checkUser(req, res);
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
@@ -87,7 +89,7 @@ app.post('/signup', function(req, res) {
 });
 
 app.post('/login',function(req, res){
-
+   console.log('post login');
   var formUsername = req.body.username;
   var formPassword = req.body.password;
   console.log(formUsername);
@@ -97,13 +99,16 @@ app.post('/login',function(req, res){
         var hash = shasum.update(formPassword).digest('hex');
         console.log('hash', hash);
         console.log('resp', resp);
-        if(hash === resp[0].password){
+        if(resp[0] !== undefined){
+          if(hash === resp[0].password){
           console.log('Yeahey');
-            res.cookie('loggedIn', true, {maxAge: 900000, httpOnly: true});
+          res.cookie('loggedIn', true, {maxAge: 900000, httpOnly: true});
           res.render('index');
+          }
         } else {
           console.log('Your password is wrong');
-          res.render('login');
+          res.redirect('login');
+          //res.render('login');
           // $('h2').append('<div>Your password is wrong</div>').css('color', 'red');
         }
       });
@@ -142,6 +147,12 @@ app.post('/links', function(req, res) {
     }
   });
 });
+
+app.post('/logout', function(req, res) {
+  res.cookie('loggedIn', false, {maxAge: 900000, httpOnly: true});
+  res.render('login');
+});
+
 
 /************************************************************/
 // Write your authentication routes here
