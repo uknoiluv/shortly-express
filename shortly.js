@@ -12,6 +12,7 @@ var crypto = require('crypto');
 
 var app = express();
 app.use(express.cookieParser());
+app.use(express.session({secret: '123'}));
 
 app.configure(function() {
   app.set('views', __dirname + '/views');
@@ -21,33 +22,38 @@ app.configure(function() {
   app.use(express.static(__dirname + '/public'));
 });
 
+// app.use(function(req, res, next){
+//   checkUser(req, res);
+//   next();
+// });
+/*
 app.use(function (req, res, next) {
   // check if client sent cookie
   var cookie = req.cookies.loggedIn;
   if (cookie === undefined)
   {
     // no: set a new cookie
-    var randomNumber=Math.random().toString();
-    randomNumber=randomNumber.substring(2,randomNumber.length);
     res.cookie('loggedIn', false, {maxAge: 900000, httpOnly: true});
     //res.cookie('cookieName',randomNumber, { maxAge: 900000, httpOnly: true });
     console.log('cookie have created successfully');
   }
   else
   {
-    // yes, cookie was already present
-    console.log('cookie exists', cookie);
+    if(cookie === true){
+      res.cookie('loggedIn', hashedUsername, {maxAge: 900000, httpOnly: true});
+      console.log('cookie exists', cookie);
+    }
   }
   next(); // <-- important!
 });
-
-app.get('/', function(req, res) {
-  checkUser(req, res);
+*/
+app.get('/', checkUser, function(req, res) {
+  //checkUser(req, res);
   res.render('index');
 });
 
-app.get('/create', function(req, res) {
-  checkUser(req, res);
+app.get('/create', checkUser, function(req, res) {
+  //checkUser(req, res);
   res.render('index');
 });
 
@@ -60,9 +66,10 @@ app.get('/login', function(req, res) {
 });
 
 
-app.get('/links', function(req, res) {
-  console.log('coookie :',req.cookies.loggedIn);
-  checkUser(req, res);
+app.get('/links', checkUser, function(req, res) {
+  //checkUser(req, res);
+  // console.log('coookie :',req.cookies.loggedIn);
+
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
@@ -89,7 +96,7 @@ app.post('/signup', function(req, res) {
 });
 
 app.post('/login',function(req, res){
-   console.log('post login');
+  console.log('post login');
   var formUsername = req.body.username;
   var formPassword = req.body.password;
   console.log(formUsername);
@@ -102,8 +109,13 @@ app.post('/login',function(req, res){
         if(resp[0] !== undefined){
           if(hash === resp[0].password){
           console.log('Yeahey');
-          res.cookie('loggedIn', true, {maxAge: 900000, httpOnly: true});
+          req.session.user_id = formUsername;
           res.render('index');
+          //var shasum = crypto.createHash('sha1');
+          //var hashedUsername = shasum.update(formUsername).digest('hex');
+          //res.cookie('loggedIn', hashedUsername, {maxAge: 900000, httpOnly: true});
+          //res.cookie('userName', formUsername, {maxAge: 900000, httpOnly: true});
+          //res.render('index');
           }
         } else {
           console.log('Your password is wrong');
@@ -149,7 +161,11 @@ app.post('/links', function(req, res) {
 });
 
 app.post('/logout', function(req, res) {
-  res.cookie('loggedIn', false, {maxAge: 900000, httpOnly: true});
+  //res.cookie('loggedIn', false, {maxAge: 900000, httpOnly: true});
+  // console.log(req.session.user_id);
+  delete req.session.user_id;
+  //
+  // console.log(req.session.user_id);
   res.render('login');
 });
 
@@ -158,10 +174,24 @@ app.post('/logout', function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
-var checkUser = function(req, res){
-  var cookie = req.cookies.loggedIn;
-  if(cookie !== true){
+function checkUser( req, res, next){
+  /*
+  var loggedinCookie = req.cookies.loggedIn;
+  console.log('loggedinCookie', loggedinCookie);
+  var usernameCookie = req.cookies.username || '';
+  console.log('usernameCookie', usernameCookie);
+  var shasum = crypto.createHash('sha1');
+  //if(usernameCookie !== undefined){
+    var hash = shasum.update(usernameCookie).digest('hex');
+  //  }
+    if(hash !== loggedinCookie){
+      res.render('login');
+    }
+   */
+  if(!req.session.user_id){
     res.render('login');
+  }else{
+    next();
   }
 };
 
