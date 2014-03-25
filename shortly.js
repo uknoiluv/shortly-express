@@ -9,10 +9,59 @@ var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
 var crypto = require('crypto');
+var passport = require('passport');
+var TwitterStrategy = require('passport-twitter').Strategy;
+var connectEnsureLogin = require('connect-ensure-login');
+
+var TWITTER_CONSUMER_KEY = "EFC7T8qeNZsNvEOsbl120Q";
+var TWITTER_CONSUMER_SECRET = "YerABenwl67hWyDH0FAxyVmMBxndNGzC1nQS1ljWDYY";
+
+var userProfile;
+var userDisplayName;
+
+passport.serializeUser(function(user, done){
+  done(null, user);
+});
+
+passport.deserializeUser(function(obj, done){
+  done(null, obj);
+});
+
+passport.use(new TwitterStrategy({
+  consumerKey: TWITTER_CONSUMER_KEY,
+  consumerSecret: TWITTER_CONSUMER_SECRET,
+  callbackURL: '/auth/twitter/callback'
+},
+  function(token, tokenSecret, profile, done){
+    /*
+    process.nextTick(function(){
+      return done(null, profile);
+    });
+*/
+
+// this is a "verify callback". it recevies credentials as arguments
+// which are used to locate and return user records.
+  console.log("token: ", token);
+  console.log("tokenSecreT: ", tokenSecret);
+  userProfile = profile;
+  userDisplayName = profile.displayName;
+  console.log("twitterID: ", profile.id);
+  db.knex('users')
+    .select()
+    .where('twitterID', profile.id)
+    .exec(function(err, resp){
+      return done(err, resp);
+  //User.findOrCreate({twitterId: profile.id}, function(err, user){
+  //  return done(err, user); //github passport-twitter
+    });
+}));
 
 var app = express();
 app.use(express.cookieParser());
 app.use(express.session({secret: '123'}));
+app.use(passport.initialize());
+app.use(passport.session());
+
 
 app.configure(function() {
   app.set('views', __dirname + '/views');
@@ -47,13 +96,13 @@ app.use(function (req, res, next) {
   next(); // <-- important!
 });
 */
-app.get('/', checkUser, function(req, res) {
+
+app.get('/', ensureAuthenticated, function(req, res) {
   //checkUser(req, res);
   res.render('index');
 });
 
-app.get('/create', checkUser, function(req, res) {
-  //checkUser(req, res);
+app.get('/create', ensureAuthenticated, function(req, res) {
   res.render('index');
 });
 
@@ -62,17 +111,36 @@ app.get('/signup', function(req, res) {
 });
 
 app.get('/login', function(req, res) {
-  res.render('login');
+  res.send('<html><body><a href="/auth/twitter">Sign in with Twitter</a></body></html>');
+  // res.render('login');
 });
 
+app.get('/account', ensureAuthenticated, function(req, res) {
+    res.send('Hello ' + userDisplayName);
+});
 
-app.get('/links', checkUser, function(req, res) {
+app.get('/links', ensureAuthenticated, function(req, res) {
   //checkUser(req, res);
   // console.log('coookie :',req.cookies.loggedIn);
-
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
+});
+
+// Twitter Required Route #1
+// Initiates an OAuth transaction and redirects the user to Twitter.
+app.get('/auth/twitter', passport.authenticate('twitter'));
+
+// Twitter Required Route #2
+// URL to which Twitter will redirect the user after they have signed in.
+app.get('/auth/twitter/callback', passport.authenticate('twitter', {
+  successRedirect: '/', failureRedirect: '/login'
+}));
+
+// From PassportJS
+app.get('/logout', function(req, res){
+  req.logout();
+  res.redirect('/login');
 });
 
 app.post('/signup', function(req, res) {
@@ -92,7 +160,7 @@ app.post('/signup', function(req, res) {
       console.log(err);
     });
 
-  res.render('login');
+  res.redirect('/login');
 });
 
 app.post('/login',function(req, res){
@@ -111,18 +179,11 @@ app.post('/login',function(req, res){
           console.log('Yeahey');
           req.session.user_id = formUsername;
           res.render('index');
-          //var shasum = crypto.createHash('sha1');
-          //var hashedUsername = shasum.update(formUsername).digest('hex');
-          //res.cookie('loggedIn', hashedUsername, {maxAge: 900000, httpOnly: true});
-          //res.cookie('userName', formUsername, {maxAge: 900000, httpOnly: true});
-          //res.render('index');
           }
         } else {
           console.log('Your password is wrong');
-          res.redirect('login');
-          //res.render('login');
-          // $('h2').append('<div>Your password is wrong</div>').css('color', 'red');
-        }
+          res.redirect('/login');
+         }
       });
 
 });
@@ -166,7 +227,7 @@ app.post('/logout', function(req, res) {
   delete req.session.user_id;
   //
   // console.log(req.session.user_id);
-  res.render('login');
+  res.redirect('/login');
 });
 
 
@@ -176,25 +237,20 @@ app.post('/logout', function(req, res) {
 
 function checkUser( req, res, next){
   /*
-  var loggedinCookie = req.cookies.loggedIn;
-  console.log('loggedinCookie', loggedinCookie);
-  var usernameCookie = req.cookies.username || '';
-  console.log('usernameCookie', usernameCookie);
-  var shasum = crypto.createHash('sha1');
-  //if(usernameCookie !== undefined){
-    var hash = shasum.update(usernameCookie).digest('hex');
-  //  }
-    if(hash !== loggedinCookie){
-      res.render('login');
-    }
-   */
   if(!req.session.user_id){
     res.render('login');
   }else{
     next();
   }
+  */
 };
 
+function ensureAuthenticated (req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect('/login');
+}
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
