@@ -11,9 +11,8 @@ var Click = require('./app/models/click');
 var crypto = require('crypto');
 
 var app = express();
-
-
-
+app.use(express.cookieParser());                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                
 app.configure(function() {
   app.set('views', __dirname + '/views');
   app.set('view engine', 'ejs');
@@ -22,11 +21,33 @@ app.configure(function() {
   app.use(express.static(__dirname + '/public'));
 });
 
+app.use(function (req, res, next) {
+  // check if client sent cookie
+  var cookie = req.cookies.loggedIn;
+  if (cookie === undefined)
+  {
+    // no: set a new cookie
+    var randomNumber=Math.random().toString();
+    randomNumber=randomNumber.substring(2,randomNumber.length);
+    res.cookie('loggedIn', false, {maxAge: 900000, httpOnly: true});
+    //res.cookie('cookieName',randomNumber, { maxAge: 900000, httpOnly: true });
+    console.log('cookie have created successfully');
+  } 
+  else
+  {
+    // yes, cookie was already present 
+    console.log('cookie exists', cookie);
+  } 
+  next(); // <-- important!
+});
+
 app.get('/', function(req, res) {
+  checkUser(req, res);
   res.render('index');
 });
 
 app.get('/create', function(req, res) {
+  checkUser(req, res);
   res.render('index');
 });
 
@@ -42,7 +63,7 @@ app.get('/login', function(req, res) {
 app.get('/links', function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
-  })
+  });
 });
 
 app.post('/signup', function(req, res) {
@@ -78,6 +99,8 @@ app.post('/login',function(req, res){
         console.log('resp', resp);
         if(hash === resp[0].password){
           console.log('Yeahey');
+            res.cookie('loggedIn', true, {maxAge: 900000, httpOnly: true});
+          res.render('index');
         } else {
           console.log('Your password is wrong');
           res.render('login');
@@ -124,6 +147,12 @@ app.post('/links', function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
+var checkUser = function(req, res){
+  var cookie = req.cookies.loggedIn;
+  if(cookie !== true){
+    res.render('login');
+  }
+};
 
 
 /************************************************************/
