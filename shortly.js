@@ -11,6 +11,7 @@ var Click = require('./app/models/click');
 var crypto = require('crypto');
 var passport = require('passport');
 var TwitterStrategy = require('passport-twitter').Strategy;
+//var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 var connectEnsureLogin = require('connect-ensure-login');
 
 var TWITTER_CONSUMER_KEY = "EFC7T8qeNZsNvEOsbl120Q";
@@ -19,26 +20,22 @@ var TWITTER_CONSUMER_SECRET = "YerABenwl67hWyDH0FAxyVmMBxndNGzC1nQS1ljWDYY";
 var userProfile;
 var userDisplayName;
 
+// Serialize the user id to push into the session
 passport.serializeUser(function(user, done){
   done(null, user);
 });
 
+// Deserialize the user object based on a pre-serialized token which is the user id
 passport.deserializeUser(function(obj, done){
   done(null, obj);
 });
 
+// Use twitter Strategy
 passport.use(new TwitterStrategy({
   consumerKey: TWITTER_CONSUMER_KEY,
   consumerSecret: TWITTER_CONSUMER_SECRET,
   callbackURL: '/auth/twitter/callback'
-},
-  function(token, tokenSecret, profile, done){
-    /*
-    process.nextTick(function(){
-      return done(null, profile);
-    });
-*/
-
+},function(token, tokenSecret, profile, done){
 // this is a "verify callback". it recevies credentials as arguments
 // which are used to locate and return user records.
   console.log("token: ", token);
@@ -46,15 +43,43 @@ passport.use(new TwitterStrategy({
   userProfile = profile;
   userDisplayName = profile.displayName;
   console.log("twitterID: ", profile.id);
-  db.knex('users')
-    .select()
-    .where('twitterID', profile.id)
-    .exec(function(err, resp){
+  db.knex('users').select().where('twitterID', profile.id).exec(function(err, resp){
+    console.log('resp', resp);
+    console.log('err', err);
+    // return done(err, resp);
+    if(resp.length === 0){
+      var newUser = {};
+      console.log(userProfile.screen_name);
+      newUser['username'] = userProfile.screen_name;
+      newUser['twitterID'] = userProfile.id;
+      db.knex('users').insert(newUser).then(function(){
+      console.log("added");
+    }).catch(function(err){
+      console.log(err);
+    });
+    } else {
       return done(err, resp);
+    }
+  });
+
   //User.findOrCreate({twitterId: profile.id}, function(err, user){
   //  return done(err, user); //github passport-twitter
-    });
 }));
+
+// Use google strategy
+//
+/*
+passport.use(new GoogleStrategy({
+  clientID: config.google.clientID,
+  clientSecret: config.google.clientSecret,
+  callbackURL: config.google.callbackURL
+}, function(accessToken, refreshToken, profile, done){
+  User.findOne({
+    'google.id':profile.id
+  })
+}
+}))
+*/
 
 var app = express();
 app.use(express.cookieParser());
